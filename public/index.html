@@ -434,7 +434,11 @@
       img.loading = 'lazy';
       img.alt = v.name;
       img.src = apiUrl('thumbnail', v.urlPath);
-      img.onerror = function () { img.style.display = 'none'; };
+      img.decode().then(function () {
+        ph.style.display = 'none';
+      }).catch(function () {
+        img.style.display = 'none';
+      });
       thumb.appendChild(img);
 
       var dur = fmtDuration(v.duration);
