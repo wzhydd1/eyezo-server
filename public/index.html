@@ -120,6 +120,11 @@
       gap:18px;
       margin-bottom:40px;
     }
+    @media (max-width: 540px){
+      .grid{
+        grid-template-columns:repeat(auto-fill, minmax(160px, 1fr));
+      }
+    }
     .grid:last-child{ margin-bottom:0; }
     .card{
       background:var(--room-2);
