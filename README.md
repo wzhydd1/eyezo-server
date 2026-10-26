@@ -156,6 +156,7 @@ The UI is a single self-contained page (no build step) served from `public/index
 - See a thumbnail grid with duration, resolution, and file size
 - Play videos in the browser, with seeking via HTTP range requests
 - Resume playback — watch progress is saved automatically and restored on reopen
+- A red line along the bottom of each thumbnail shows how much of the video has been watched
 
 The root URL uses **content negotiation**: browsers (requests sending `Accept: text/html`) receive the web UI, while API clients receive the JSON API descriptor as before, so existing clients are unaffected.
 
@@ -299,8 +300,10 @@ DELETE /api/watch-progress/*     - Clear saved position for a video
 
 **Save body:**
 ```json
-{ "path": "movies/action/movie.mp4", "position": 123.45 }
+{ "path": "movies/action/movie.mp4", "position": 123.45, "duration": 5400 }
 ```
+
+`duration` (seconds, optional) lets browse listings show progress before the video's metadata has been extracted.
 
 **Get response:**
 ```json

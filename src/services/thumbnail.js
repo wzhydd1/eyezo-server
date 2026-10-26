@@ -9,7 +9,7 @@ const {
   THUMBNAIL_QUALITY,
   THUMBNAIL_TIMESTAMP_PERCENT
 } = require('../config/constants');
-const { getVideoDuration } = require('./metadata');
+const { extractAndCacheMetadata } = require('./metadata');
 const { thumbnailQueue } = require('./thumbnail-queue');
 
 // Thumbnail directory: ~/.local/eyezo-server/thumbnails/
@@ -86,7 +86,7 @@ function recordThumbnailSuccess(db, relativePath, absolutePath, thumbnailPath) {
 }
 
 // Generate thumbnail for a video (internal, not queued)
-async function _generateThumbnailInternal(videoPath, relativePath) {
+async function _generateThumbnailInternal(db, videoPath, relativePath) {
   await ensureThumbnailDirectory();
 
   const thumbnailPath = getThumbnailPath(relativePath);
@@ -96,8 +96,11 @@ async function _generateThumbnailInternal(videoPath, relativePath) {
     return thumbnailPath;
   }
 
-  // Get video duration
-  const duration = await getVideoDuration(videoPath);
+  // ffprobe the video for the thumbnail timestamp, and cache the metadata
+  // (duration, resolution, codec) so browse listings can show it without a
+  // separate scan.
+  const metadata = await extractAndCacheMetadata(db, videoPath, relativePath);
+  const duration = metadata.duration || 0;
   const timestamp = Math.max(1, duration * THUMBNAIL_TIMESTAMP_PERCENT);
 
   // Generate thumbnail
@@ -148,7 +151,7 @@ async function generateAndCacheThumbnail(db, videoPath, relativePath, logger) {
       }
 
       // Generate the thumbnail
-      return await _generateThumbnailInternal(videoPath, relativePath);
+      return await _generateThumbnailInternal(db, videoPath, relativePath);
     });
 
     // Record success in database

@@ -149,16 +149,22 @@ function getRecentScans(db, limit = 10) {
 }
 
 // Update watch progress for a video
+// duration is the player-reported length in seconds (optional). It is kept
+// in watch_duration so progress can be shown even before ffprobe metadata has
+// been extracted; a missing or zero duration leaves the stored value alone.
 function updateWatchProgress(db, relativePath, absolutePath, position, duration) {
   return db.prepare(`
     INSERT INTO videos (relative_path, absolute_path, watch_position, watch_duration, last_watched, updated_at)
     VALUES (?, ?, ?, ?, unixepoch(), unixepoch())
     ON CONFLICT(relative_path) DO UPDATE SET
-      watch_position = ?,
-      watch_duration = ?,
+      watch_position = excluded.watch_position,
+      watch_duration = CASE
+        WHEN excluded.watch_duration > 0 THEN excluded.watch_duration
+        ELSE videos.watch_duration
+      END,
       last_watched = unixepoch(),
       updated_at = unixepoch()
-  `).run(relativePath, absolutePath, position, duration, position, duration);
+  `).run(relativePath, absolutePath, position, duration || 0);
 }
 
 // Get watch progress for a video
