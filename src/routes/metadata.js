@@ -129,6 +129,13 @@ async function scanDirectory(videoRoot, absolutePath, relativePath, db) {
       }
     }
 
+    switch (video.mimeType.split('/')[0]) {
+      case 'audio':
+        // Skip thumbnail generation
+        continue;
+      default:
+    }
+
     // Generate thumbnail if not already generated
     try {
       await generateAndCacheThumbnail(db, video.path, video.relativePath, null);

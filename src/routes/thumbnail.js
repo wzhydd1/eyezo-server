@@ -1,7 +1,8 @@
 const fs = require('fs');
+const path = require('path');
 const { validateAndResolvePath, fromUrlPath } = require('../utils/path-utils');
 const { NotFoundError } = require('../utils/error-handler');
-const { isVideoFile } = require('../utils/mime-types');
+const { isVideoFile, VIDEO_MIME_TYPES } = require('../utils/mime-types');
 const { generateAndCacheThumbnail, getThumbnailPath } = require('../services/thumbnail');
 
 async function routes(fastify, options) {
@@ -33,6 +34,15 @@ async function routes(fastify, options) {
         throw new NotFoundError('Video file not found');
       }
       throw error;
+    }
+
+    switch (VIDEO_MIME_TYPES[path.extname(absolutePath)]?.split('/')[0]) {
+      case 'audio':
+        // Skip thumbnail generation and return blank
+        return reply
+          .code(204)
+          .send();
+      default:
     }
 
     // Generate thumbnail if it doesn't exist (lazy generation with queue)

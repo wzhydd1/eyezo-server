@@ -36,7 +36,22 @@ const VIDEO_MIME_TYPES = {
   '.ts': 'video/mp2t',
   '.vob': 'video/dvd',
   '.ogv': 'video/ogg',
-  '.m2ts': 'video/mp2t'
+  '.m2ts': 'video/mp2t',
+// };
+
+// const AUDIO_MIME_TYPES = {
+  '.aac': 'audio/aac',
+  '.aif': 'audio/aiff',
+  '.aiff': 'audio/aiff',
+  '.ape': 'audio/ape',
+  '.flac': 'audio/flac',
+  '.m4a': 'audio/mp4',
+  '.mp3': 'audio/mpeg',
+  '.oga': 'audio/ogg',
+  '.ogg': 'audio/ogg',
+  '.opus': 'audio/opus',
+  '.wav': 'audio/wav',
+  '.wma': 'audio/x-ms-wma',
 };
 
 const VIDEO_EXTENSIONS = Object.keys(VIDEO_MIME_TYPES);
