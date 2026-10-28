@@ -26,7 +26,7 @@ All video objects in browse responses include watch progress:
 
 ### Fields
 
-- **duration**: Total video duration in seconds (from FFmpeg metadata, may be null if not extracted)
+- **duration**: Total video duration in seconds. Comes from FFmpeg metadata (extracted when a thumbnail is generated, on `GET /api/metadata/*`, or by `POST /api/scan`). If that has not happened yet, it falls back to the duration a client reported with its watch progress, and is null if neither is known.
 - **watchPosition**: Current playback position in seconds (0 if unwatched)
 - **lastWatched**: Unix timestamp of last watch progress update (0 if never watched)
 
@@ -44,9 +44,12 @@ Content-Type: application/json
 
 {
   "path": "movies/action/movie.mp4",
-  "position": 150.5
+  "position": 150.5,
+  "duration": 5400
 }
 ```
+
+`duration` is optional but recommended: it is the video length in seconds as the player sees it. The server keeps it so browse listings can show a progress percentage even for videos whose FFmpeg metadata has not been extracted yet. Omitting it (or sending 0) leaves any previously reported duration in place.
 
 **Response:**
 ```json
@@ -103,7 +106,7 @@ DELETE /api/watch-progress/movies/action/movie.mp4
 
 ```swift
 // Report progress during playback
-func reportWatchProgress(path: String, position: Double) {
+func reportWatchProgress(path: String, position: Double, duration: Double) {
     let url = URL(string: "http://server:3000/api/watch-progress")!
     var request = URLRequest(url: url)
     request.httpMethod = "POST"
@@ -111,7 +114,8 @@ func reportWatchProgress(path: String, position: Double) {
 
     let body = [
         "path": path,
-        "position": position
+        "position": position,
+        "duration": duration
     ] as [String : Any]
 
     request.httpBody = try? JSONSerialization.data(withJSONObject: body)
@@ -132,7 +136,8 @@ func setupProgressTracking(player: AVPlayer, videoPath: String) {
     let interval = CMTime(seconds: 10, preferredTimescale: 1)
     player.addPeriodicTimeObserver(forInterval: interval, queue: .main) { time in
         let position = time.seconds
-        reportWatchProgress(path: videoPath, position: position)
+        let duration = player.currentItem?.duration.seconds ?? 0
+        reportWatchProgress(path: videoPath, position: position, duration: duration)
     }
 }
 
@@ -147,11 +152,11 @@ func percentageWatched(video: Video) -> Double {
 
 ```javascript
 // Report progress during playback
-function reportWatchProgress(path, position) {
+function reportWatchProgress(path, position, duration) {
   fetch('http://server:3000/api/watch-progress', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ path, position })
+    body: JSON.stringify({ path, position, duration })
   });
 }
 
@@ -168,17 +173,17 @@ const videoPath = 'movies/action/movie.mp4';
 
 setInterval(() => {
   if (!videoElement.paused) {
-    reportWatchProgress(videoPath, videoElement.currentTime);
+    reportWatchProgress(videoPath, videoElement.currentTime, videoElement.duration);
   }
 }, 10000); // Every 10 seconds
 
 // Also report on pause and seeking
 videoElement.addEventListener('pause', () => {
-  reportWatchProgress(videoPath, videoElement.currentTime);
+  reportWatchProgress(videoPath, videoElement.currentTime, videoElement.duration);
 });
 
 videoElement.addEventListener('seeked', () => {
-  reportWatchProgress(videoPath, videoElement.currentTime);
+  reportWatchProgress(videoPath, videoElement.currentTime, videoElement.duration);
 });
 
 // Calculate percentage watched
@@ -265,7 +270,7 @@ Watch progress is stored in the `videos` table:
 ```sql
 -- Schema
 watch_position REAL DEFAULT 0      -- Current position in seconds
-watch_duration REAL DEFAULT 0      -- Stored for internal use
+watch_duration REAL DEFAULT 0      -- Length reported by the last client (fallback for duration)
 last_watched INTEGER DEFAULT 0     -- Unix timestamp
 duration REAL                      -- From FFmpeg metadata
 

@@ -170,12 +170,15 @@
       border-radius:6px;
       backdrop-filter:blur(4px);
     }
+    /* watched-so-far line along the bottom edge of the thumbnail */
     .progress-bar{
       position:absolute;
       bottom:0; left:0;
-      height:3px;
-      background:linear-gradient(90deg, var(--glow-2), var(--glow));
-      box-shadow:0 0 8px 0 rgba(201,121,28,0.5);
+      height:5px;
+      max-width:100%;
+      background:#E0352B;
+      box-shadow:0 0 6px 0 rgba(224,53,43,0.55);
+      pointer-events:none;
     }
     .meta{ padding:12px 14px 14px; }
     .meta .name{
@@ -303,6 +306,7 @@
     var vids;
     var dirs;
     var currentVideo = null;   // { relativePath } of the open video
+    var currentThumb = null;   // .thumb element of the open video's card, for live progress updates
     var saveTimer = null;
     var autoplay = false;
 
@@ -476,13 +480,7 @@
         thumb.appendChild(badge);
       }
 
-      // Resume progress bar if we have cached watch position + duration.
-      if (v.watchPosition && v.duration && v.watchPosition > 0) {
-        var pb = document.createElement('div');
-        pb.className = 'progress-bar';
-        pb.style.width = Math.min(100, (v.watchPosition / v.duration) * 100) + '%';
-        thumb.appendChild(pb);
-      }
+      updateProgressBar(thumb, v);
 
       card.appendChild(thumb);
 
@@ -504,13 +502,34 @@
       }
       card.appendChild(meta);
 
-      card.onclick = function () { openPlayer(v); };
-      card.onkeydown = function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPlayer(v); } };
+      card.onclick = function () { openPlayer(v, thumb); };
+      card.onkeydown = function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPlayer(v, thumb); } };
       return card;
     }
 
-    async function openPlayer(v) {
+    // Draw (or remove) the red watched-so-far line at the bottom of a thumbnail.
+    // Nothing is shown until some of the video has been watched.
+    function updateProgressBar(thumb, v) {
+      var pb = thumb.querySelector('.progress-bar');
+      var pct = 0;
+      if (v.watchPosition > 0 && v.duration > 0) {
+        pct = Math.min(100, (v.watchPosition / v.duration) * 100);
+      }
+      if (pct <= 0) {
+        if (pb) pb.remove();
+        return;
+      }
+      if (!pb) {
+        pb = document.createElement('div');
+        pb.className = 'progress-bar';
+        thumb.appendChild(pb);
+      }
+      pb.style.width = pct + '%';
+    }
+
+    async function openPlayer(v, thumb) {
       currentVideo = v;
+      currentThumb = thumb || null;
       playerTitleEl.textContent = v.name;
       playerEl.src = apiUrl('video', v.urlPath);
       overlayEl.classList.add('open');
@@ -534,8 +553,9 @@
       startProgressSaver();
     }
 
-    async function openPlayerWithoutProgress(v) {
+    async function openPlayerWithoutProgress(v, thumb) {
       currentVideo = v;
+      currentThumb = thumb || null;
       playerTitleEl.textContent = v.name;
       playerEl.src = apiUrl('video', v.urlPath);
       overlayEl.classList.add('open');
@@ -545,10 +565,21 @@
 
     function saveProgress() {
       if (!currentVideo || !playerEl.currentTime) return;
-      var body = JSON.stringify({
+      var payload = {
         path: currentVideo.relativePath,
         position: playerEl.currentTime
-      });
+      };
+      // Send the real length so the server can show progress even before it
+      // has probed the file itself.
+      if (isFinite(playerEl.duration) && playerEl.duration > 0) {
+        payload.duration = playerEl.duration;
+      }
+      var body = JSON.stringify(payload);
+
+      // Keep the card's progress line in sync with what we just saved.
+      currentVideo.watchPosition = playerEl.currentTime;
+      if (payload.duration) currentVideo.duration = payload.duration;
+      if (currentThumb) updateProgressBar(currentThumb, currentVideo);
       // keepalive lets the final save survive page/overlay teardown.
       fetch('/api/watch-progress', {
         method: 'POST',
@@ -587,6 +618,7 @@
       playerEl.load();
       overlayEl.classList.remove('open');
       currentVideo = null;
+      currentThumb = null;
     }
 
     function toggleAutoplay(){

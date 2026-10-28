@@ -63,13 +63,15 @@ async function readDirectory(absolutePath, relativePath, videoRoot, db) {
         // Try to get cached metadata from database
         const metadata = db.prepare(`
           SELECT duration, width, height, codec, bitrate, has_thumbnail,
-                 watch_position, last_watched
+                 watch_position, watch_duration, last_watched
           FROM videos
           WHERE relative_path = ?
         `).get(entryRelativePath);
 
         if (metadata) {
-          videoInfo.duration = metadata.duration;
+          // Prefer the ffprobe duration; fall back to the length a player
+          // reported with its watch progress.
+          videoInfo.duration = metadata.duration || metadata.watch_duration || null;
           videoInfo.width = metadata.width;
           videoInfo.height = metadata.height;
           videoInfo.codec = metadata.codec;

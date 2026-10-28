@@ -5,7 +5,7 @@ const { updateWatchProgress, getWatchProgress, clearWatchProgress } = require('.
 async function routes(fastify, options) {
   // Update watch progress
   fastify.post('/api/watch-progress', async (request, reply) => {
-    const { path: urlPath, position } = request.body || {};
+    const { path: urlPath, position, duration } = request.body || {};
     const videoRoot = fastify.videoRoot;
     const db = fastify.db;
 
@@ -14,8 +14,12 @@ async function routes(fastify, options) {
       throw new ValidationError('Missing required field: path');
     }
 
-    if (typeof position !== 'number' || position < 0) {
+    if (typeof position !== 'number' || !Number.isFinite(position) || position < 0) {
       throw new ValidationError('Invalid position: must be a non-negative number');
+    }
+
+    if (duration !== undefined && (typeof duration !== 'number' || !Number.isFinite(duration) || duration < 0)) {
+      throw new ValidationError('Invalid duration: must be a non-negative number');
     }
 
     // Decode and validate path
@@ -23,7 +27,7 @@ async function routes(fastify, options) {
     const { absolutePath } = validateAndResolvePath(videoRoot, relativePath);
 
     // Update watch progress in database
-    updateWatchProgress(db, relativePath, absolutePath, position, 0);
+    updateWatchProgress(db, relativePath, absolutePath, position, duration || 0);
 
     return {
       success: true,
